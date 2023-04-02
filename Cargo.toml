@@ -1,0 +1,16 @@
+[package]
+name = "cordy"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "cordy"
+crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ctor = "0.1.26"
+tracing = "0.1.37"
+pox = { git = "ssh://git@git.fantabos.co/srv/git/pox", branch = "dev", features = ["monitor"] }
