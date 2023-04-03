@@ -11,6 +11,11 @@ path = "src/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ctor = "0.1.26"
-tracing = "0.1.37"
+ctor = "0.1"
+tracing = "0.1"
 pox = { git = "ssh://git@git.fantabos.co/srv/git/pox", branch = "dev", features = ["monitor"] }
+tokio = { version = "1.27", features = ["full"] }
+tracing-subscriber = "0.3"
+mlua = { version = "0.8", features = ["luajit52", "vendored", "async", "send", "serialize"] }
+serde = "1.0.159"
+serde_json = "1.0.95"
