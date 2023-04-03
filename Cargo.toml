@@ -19,3 +19,4 @@ tracing-subscriber = "0.3"
 mlua = { version = "0.8", features = ["luajit52", "vendored", "async", "send", "serialize"] }
 serde = "1.0.159"
 serde_json = "1.0.95"
+hexdump = "0.1.1"
