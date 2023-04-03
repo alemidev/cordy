@@ -2,7 +2,7 @@ use mlua::{Lua, MultiValue};
 use tokio::{sync::{mpsc, broadcast}, net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 use tracing::{debug, error};
 
-use crate::runtime::{prepare_lua_runtime, pretty_lua};
+use crate::{runtime::register_builtin_fn, helpers::pretty_lua};
 
 
 pub struct ControlChannel {
@@ -50,7 +50,11 @@ impl ControlChannel {
 
 	async fn process(&mut self, mut stream: TcpStream) {
 		let mut lua = Lua::new();
-		prepare_lua_runtime(&mut lua, self.source.clone());
+		if let Err(e) = register_builtin_fn(&mut lua, self.source.clone()) {
+			error!("could not prepare Lua runtime: {}", e);
+			return;
+		}
+
 		self.source.send(
 			format!("LuaJit 5.2 via rlua inside process #{}\n@> ", std::process::id())
 		).unwrap();
@@ -60,6 +64,7 @@ impl ControlChannel {
 
 				rx = stream.read_u8() => match rx { // FIXME is read_exact cancelable?
 					Ok(c) => {
+						// TODO move this "lua repl" code outside of here!
 						if !c.is_ascii() {
 							debug!("character '{}' is not ascii", c);
 							break;
