@@ -26,6 +26,7 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 	lua.globals().set("hexdump",  lua.create_function(lua_hexdump)?)?;
 	lua.globals().set("read",     lua.create_function(lua_read)?)?;
 	lua.globals().set("write",    lua.create_function(lua_write)?)?;
+	lua.globals().set("find",     lua.create_function(lua_find)?)?;
 	lua.globals().set("procmaps", lua.create_function(lua_procmaps)?)?;
 	lua.globals().set("exit",     lua.create_function(lua_exit)?)?;
 	lua.globals().set("mmap",     lua.create_function(lua_mmap)?)?;
