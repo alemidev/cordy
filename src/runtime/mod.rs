@@ -38,23 +38,25 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 }
 
 pub const VERSIONTEXT : &str = "LuaJit 5.2 via rlua";
-pub const HELPTEXT : &str = "?> this is a complete lua repl
-?> you can make scripts or just evaluate expressions
+pub const HELPTEXT : &str = "?> This is a complete lua repl
+?> Make scripts or just evaluate expressions
 ?> print() will go to original process stdout, use log()
 ?> to send to this console instead
-?> each connection will spawn a fresh repl, but only one
+?> Each connection will spawn a fresh repl, but only one
 ?> concurrent connection is allowed
-?> some ad-hoc functions to work with affected process
+?> Some ad-hoc functions to work with affected process
 ?> are already available in this repl globals:
  >  log([arg...])                    print to console rather than stdout
- >  hexdump(bytes, [ret])            print hexdump of given bytes to console
+ >  hexdump(bytes, [ret])            print hexdump of given {bytes} to console
  >  exit([code])                     immediately terminate process
  >  mmap([a], l, [p], [f], [d], [o]) execute mmap syscall
- >  munmap(addr, len)                unmap {size} bytes at {addr}
- >  mprotect(addr, len, prot)        set permission flags on target memory area
- >  procmaps([ret])                  returns process memory maps as string
- >  read(addr, size)                 read raw bytes at given address
- >  write(addr, bytes)               write raw bytes at given address
- >  x(n)                             show hex representation of given number
+ >  munmap(ptr, len)                 unmap {len} bytes at {ptr}
+ >  mprotect(ptr, len, prot)         set {prot} flags from {ptr} to {ptr+len}
+ >  procmaps([ret])                  get process memory maps as string
+ >  read(addr, size)                 read {size} raw bytes at {addr}
+ >  write(addr, bytes)               write given {bytes} at {addr}
+ >  find(ptr, len, match, [first])   search from {ptr} to {ptr+len} any or first {match}
+ >  x(number)                        show hex representation of given {number}
+ >  b(string)                        return array of bytes from given {string}
  >  help()                           print these messages
 ";
