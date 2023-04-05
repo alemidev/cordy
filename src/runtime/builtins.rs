@@ -36,8 +36,45 @@ pub fn lua_hexdump(lua: &Lua, (bytes, ret): (Vec<u8>, Option<bool>)) -> Result<V
 	Ok(Value::Nil)
 }
 
-pub fn lua_hex(_: &Lua, n: usize) -> Result<String, Error> {
-	Ok(format!("0x{:X}", n))
+pub fn lua_hex(l: &Lua, (value, prefix): (Value, Option<bool>)) -> Result<String, Error> {
+	let pre = if prefix.unwrap_or(true) { "0x" } else { "" };
+	match value {
+		Value::Nil        => Ok(format!("{}00", pre)),
+		Value::Boolean(b) => Ok(format!("{}{:02X}", pre, b as i32)),
+		Value::Integer(n) => Ok(format!("{}{:02X}", pre, n)),
+		Value::String(s)  => Ok(
+			s.as_bytes()
+				.iter()
+				.map(|x| format!("{:02X}", x))
+				.fold(pre.into(), |acc, x| acc + x.as_str())
+		),
+		Value::Table(t)   => Ok(
+			t.sequence_values::<Value>().into_iter()
+				.filter_map(|x| if let Ok(v) = x { Some(v) } else { None })
+				.map(|x| lua_hex(l, (x, Some(false))).unwrap_or("??".into())) // recursive! try stopping me
+				.fold(pre.into(), |acc, x| acc + x.as_str())
+		),
+		Value::Number(_)        => Err(Error::RuntimeError("float has no hex value".into())),
+		Value::Function(_)      => Err(Error::RuntimeError("function has no hex value".into())),
+		Value::Thread(_)        => Err(Error::RuntimeError("thread has no hex value".into())),
+		Value::LightUserData(_) => Err(Error::RuntimeError("LightUserData has no hex value".into())),
+		Value::UserData(_)      => Err(Error::RuntimeError("UserData has no hex value".into())),
+		Value::Error(_)         => Err(Error::RuntimeError("Error has no hex value".into())),
+	}
+}
+
+/// could just use .to_ne_bytes() but lot of trailing zeros
+fn i64_to_significant_bytes(n: i64) -> Vec<u8> {
+	let mut out = vec![];
+	for i in 0..8 {
+		let val = (n >> (i*8)) as u8;
+		let res = n >> ((i+1) * 8);
+		if val == 0 && res == 0 { break; }
+		out.push(val);
+	}
+	out
+}
+
 pub fn lua_bytes(l: &Lua, value: Value) -> Result<Vec<u8>, Error> {
 	match value {
 		Value::Nil => Ok(vec![]),
@@ -63,7 +100,7 @@ pub fn lua_read(_: &Lua, (addr, size): (usize, usize)) -> Result<Vec<u8>, Error>
 	if size == 0 {
 		return Ok("".into());
 	}
-	let ptr = addr as *mut u8;
+	let ptr = addr as *const u8;
 	let slice = unsafe { std::slice::from_raw_parts(ptr, size) };
 	Ok(slice.to_vec())
 }
