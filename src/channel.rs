@@ -1,9 +1,8 @@
-use mlua::{Lua, MultiValue};
+use mlua::Lua;
 use tokio::{sync::{mpsc, broadcast}, net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
-use tracing::{debug, error};
+use tracing::{debug, error, warn};
 
-use crate::{runtime::register_builtin_fn, helpers::pretty_lua};
-
+use crate::runtime::{register_builtin_fn, VERSIONTEXT, repl::LuaRepl};
 
 pub struct ControlChannel {
 	addr: String,
@@ -50,57 +49,33 @@ impl ControlChannel {
 
 	async fn process(&mut self, mut stream: TcpStream) {
 		let mut lua = Lua::new();
-		if let Err(e) = register_builtin_fn(&mut lua, self.source.clone()) {
-			error!("could not prepare Lua runtime: {}", e);
-			return;
+		let mut repl = LuaRepl::new(self.source.clone().into());
+
+		let intro_text = format!(
+			"{} inside process #{}\n@> ",
+			VERSIONTEXT, std::process::id()
+		);
+
+		if let Err(e) = repl.write(intro_text) {
+			warn!("could not display version on repl: {}", e);
 		}
 
-		self.source.send(
-			format!("LuaJit 5.2 via rlua inside process #{}\n@> ", std::process::id())
-		).unwrap();
-		let mut cmd = String::new();
+		if let Err(e) = register_builtin_fn(&mut lua, self.source.clone()) {
+			error!("could not prepare runtime environment: {}", e);
+		}
+
 		loop {
 			tokio::select! {
 
-				rx = stream.read_u8() => match rx { // FIXME is read_exact cancelable?
+				rx = stream.read_u8() => match rx { // TODO should be cancelable, but is it really?
 					Ok(c) => {
-						// TODO move this "lua repl" code outside of here!
 						if !c.is_ascii() {
 							debug!("character '{}' is not ascii", c);
 							break;
 						}
 						let ch : char = c as char;
-						match ch {
-							'\u{8}' => {
-								if cmd.len() > 0 {
-									cmd.remove(cmd.len() - 1);
-								}
-							},
-							'\n' => {
-								match lua.load(&cmd).eval::<MultiValue>() {
-									Ok(values) => {
-										for val in values {
-											self.source.send(format!("=({}) {}", val.type_name(), pretty_lua(val))).unwrap();
-										}
-										self.source.send("\n@> ".into()).unwrap();
-										cmd = String::new();
-									},
-									Err(e) => {
-										match e {
-											mlua::Error::SyntaxError { message: _, incomplete_input: true } => {
-												self.source.send("@    ".into()).unwrap();
-												cmd.push(ch);
-											},
-											_ => {
-												self.source.send(format!("! {}\n@> ", e)).unwrap();
-												cmd = String::new();
-											},
-										}
-									}
-								}
-							},
-							'\0' => break,
-							_ => cmd.push(ch),
+						if let Err(e) = repl.evaluate(&lua, ch) {
+							error!("could not evaluate input '{}' : {}", repl.buffer(), e);
 						}
 					},
 					Err(e) => {
@@ -110,12 +85,18 @@ impl ControlChannel {
 				},
 
 				tx = self.sink.recv() => match tx {
-					Some(txt) => stream.write_all(txt.as_bytes()).await.unwrap(),
+					Some(txt) => {
+						if let Err(e) = stream.write_all(txt.as_bytes()).await {
+							error!("could not send output to remote console: {}", e);
+							break;
+						}
+					}
 					None => {
 						error!("command sink closed, exiting processor");
 						break;
 					}
 				},
+
 			}
 		}
 	}

