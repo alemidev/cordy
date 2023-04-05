@@ -34,6 +34,7 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 	lua.globals().set("mprotect", lua.create_function(lua_mprotect)?)?;
 	lua.globals().set("help",     lua.create_function(lua_help)?)?;
 	lua.globals().set("x",        lua.create_function(lua_hex)?)?;
+	lua.globals().set("b",        lua.create_function(lua_bytes)?)?;
 
 	Ok(())
 }

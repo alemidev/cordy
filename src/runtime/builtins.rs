@@ -38,6 +38,25 @@ pub fn lua_hexdump(lua: &Lua, (bytes, ret): (Vec<u8>, Option<bool>)) -> Result<V
 
 pub fn lua_hex(_: &Lua, n: usize) -> Result<String, Error> {
 	Ok(format!("0x{:X}", n))
+pub fn lua_bytes(l: &Lua, value: Value) -> Result<Vec<u8>, Error> {
+	match value {
+		Value::Nil => Ok(vec![]),
+		Value::Boolean(b) => Ok(if b { vec![1] } else { vec![0] }),
+		Value::Integer(n) => Ok(i64_to_significant_bytes(n)),
+		Value::String(s) => Ok(s.as_bytes().to_vec()),
+		Value::Table(t) => Ok(
+			t.sequence_values::<Value>().into_iter()
+				.filter_map(|x| if let Ok(v) = x { Some(v) } else { None })
+				.map(|x| lua_bytes(l, x).unwrap_or(vec![]))
+				.fold(vec![], |mut acc, mut x| { acc.append(&mut x); acc })
+		),
+		Value::Number(_)        => Err(Error::RuntimeError("cannot display float bytes value".into())),
+		Value::Function(_)      => Err(Error::RuntimeError("cannot display function bytes value".into())),
+		Value::Thread(_)        => Err(Error::RuntimeError("cannot display thread bytes value".into())),
+		Value::LightUserData(_) => Err(Error::RuntimeError("cannot display LightUserData bytes value".into())),
+		Value::UserData(_)      => Err(Error::RuntimeError("cannot display UserData bytes value".into())),
+		Value::Error(_)         => Err(Error::RuntimeError("cannot display Error bytes value".into())),
+	}
 }
 
 pub fn lua_read(_: &Lua, (addr, size): (usize, usize)) -> Result<Vec<u8>, Error> {
