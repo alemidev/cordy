@@ -10,13 +10,16 @@ use tokio::sync::broadcast;
 use crate::runtime::console::Console;
 use crate::runtime::builtins::*;
 
+pub const GLOBAL_CONSOLE : &str = "GLOBAL_CONSOLE";
+
 pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Result<(), Error> {
-	lua.globals().set("console", Console::from(console))?; // TODO passing it this way makes clones
+	lua.globals().set(GLOBAL_CONSOLE, Console::from(console))?; // TODO passing it this way makes clones
 
 	lua.globals().set("PROT_NONE",  ProtFlags::PROT_NONE.bits())?;
 	lua.globals().set("PROT_READ",  ProtFlags::PROT_READ.bits())?;
 	lua.globals().set("PROT_WRITE", ProtFlags::PROT_WRITE.bits())?;
 	lua.globals().set("PROT_EXEC",  ProtFlags::PROT_EXEC.bits())?;
+	lua.globals().set("PROT_ALL",  (ProtFlags::PROT_EXEC | ProtFlags::PROT_WRITE | ProtFlags::PROT_READ).bits())?;
 
 	lua.globals().set("MAP_ANON",   MapFlags::MAP_ANON.bits())?;
 	lua.globals().set("MAP_PRIVATE",MapFlags::MAP_PRIVATE.bits())?;

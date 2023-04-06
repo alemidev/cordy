@@ -7,18 +7,19 @@ use tracing::warn;
 
 use crate::helpers::pretty_lua;
 
-use super::{console::Console, HELPTEXT};
+use super::{console::Console, HELPTEXT, GLOBAL_CONSOLE};
 
 const SIGSEGV_HOOK : AtomicBool = AtomicBool::new(false);
 
 pub fn lua_help(lua: &Lua, _args: ()) -> Result<(), Error> {
-	let console : Console = lua.globals().get("console")?;
-	console.send(HELPTEXT.into())
+	let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
+	console.send(HELPTEXT.into())?;
+	Ok(())
 }
 
 pub fn lua_log(lua: &Lua, values: Variadic<Value>) -> Result<usize, Error> {
 	let mut out = String::new();
-	let console : Console = lua.globals().get("console")?;
+	let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
 	for value in values {
 		out.push_str(&pretty_lua(value));
 		out.push(' ');
@@ -33,8 +34,8 @@ pub fn lua_hexdump(lua: &Lua, (bytes, ret): (Vec<u8>, Option<bool>)) -> Result<V
 	if ret.unwrap_or(false) {
 		return Ok(pretty_hex::simple_hex(&bytes).to_lua(lua)?);
 	}
-	let console : Console = lua.globals().get("console")?;
-	console.send(pretty_hex::pretty_hex(&bytes))?;
+	let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
+	console.send(pretty_hex::pretty_hex(&bytes) + "\n")?;
 	Ok(Value::Nil)
 }
 
@@ -178,7 +179,7 @@ pub fn lua_procmaps(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 				).as_str()
 			);
 		}
-		let console : Console = lua.globals().get("console")?;
+		let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
 		console.send(out)?;
 		Ok(Value::Nil)
 	}
@@ -219,7 +220,7 @@ pub fn lua_threads(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 			}
 		}
 
-		let console : Console = lua.globals().get("console")?;
+		let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
 		console.send(out)?;
 		Ok(Value::Nil)
 	}
