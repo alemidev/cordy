@@ -169,11 +169,13 @@ pub fn lua_procmaps(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 		}
 		Ok(out.to_lua(lua)?)
 	} else {
-		let mut out = format!("=> /proc/{}/maps", std::process::id());
+		let mut out = String::new();
+		let mut count = 0;
 		for map in maps {
+			count += 1;
 			out.push_str(
 				format!(
-					"\n[{}] 0x{:08X}..0x{:08X} +{:08x} ({}b) \t {:?} {}",
+					" * [{}] 0x{:08X}..0x{:08X} +{:08x} ({}b) \t {:?} {}\n",
 					map.perms.as_str(), map.address.0, map.address.1, map.offset, map.address.1 - map.address.0, map.pathname,
 					if map.inode != 0 { format!("({})", map.inode) } else { "".into() },
 				).as_str()
@@ -181,7 +183,7 @@ pub fn lua_procmaps(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 		}
 		let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
 		console.send(out)?;
-		Ok(Value::Nil)
+		Ok(Value::Integer(count))
 	}
 }
 
@@ -208,12 +210,14 @@ pub fn lua_threads(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 		}
 		Ok(out.to_lua(lua)?)
 	} else {
-		let mut out = format!("=> /proc/{}/tasks", std::process::id());
+		let mut out = String::new();
+		let mut count = 0;
 		for task in maps {
 			match thread_status(task) {
 				Ok(s) => {
+					count += 1;
 					out.push_str(
-						format!("\n * [{}] {} {} | {} fd)", s.pid, s.state, s.name, s.fdsize).as_str()
+						format!(" * [{}] {} {} | {} fd)\n", s.pid, s.state, s.name, s.fdsize).as_str()
 					);
 				},
 				Err(e) => warn!("could not parse task metadata: {}", e),
@@ -222,7 +226,7 @@ pub fn lua_threads(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
 
 		let console : Console = lua.globals().get(GLOBAL_CONSOLE)?;
 		console.send(out)?;
-		Ok(Value::Nil)
+		Ok(Value::Integer(count))
 	}
 }
 
