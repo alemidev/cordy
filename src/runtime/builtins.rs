@@ -1,12 +1,14 @@
 use std::{ffi::c_void, num::NonZeroUsize};
 
 use mlua::{Lua, Error, Variadic, Value, ToLua};
-use nix::sys::mman::{mprotect, ProtFlags, mmap, MapFlags, munmap};
 use pox::{proc_maps::get_process_maps, tricks::fmt_path};
+use nix::sys::{mman::{mprotect, ProtFlags, mmap, MapFlags, munmap}, signal::{Signal::SIGSEGV, SigHandler}};
 
 use crate::helpers::pretty_lua;
 
 use super::{console::Console, HELPTEXT};
+
+const SIGSEGV_HOOK : AtomicBool = AtomicBool::new(false);
 
 pub fn lua_help(lua: &Lua, _args: ()) -> Result<(), Error> {
 	let console : Console = lua.globals().get("console")?;
@@ -182,6 +184,37 @@ pub fn lua_munmap(_: &Lua, (addr, len): (usize, usize)) -> Result<(), Error> {
 	match unsafe { munmap(addr as *mut c_void, len) } {
 		Ok(()) => Ok(()),
 		Err(e) => Err(Error::RuntimeError(format!("could not run munmap ({}): {}", e, e.desc()))),
+	}
+}
+
+extern fn handle_sigsegv(_signal: c_int) {
+	eprintln!("Segmentation fault (ignored)");
+}
+
+pub fn lua_catch_sigsev(_: &Lua, mode: Option<bool>) -> Result<bool, Error> {
+	match mode {
+		Some(m) => match m {
+			true => {
+				let handler = SigHandler::Handler(handle_sigsegv);
+				match unsafe { nix::sys::signal::signal(SIGSEGV, handler) } {
+					Ok(_h) => {
+						SIGSEGV_HOOK.store(true, Ordering::Relaxed);
+						Ok(true)
+					},
+					Err(e) => Err(Error::RuntimeError(format!("could not set sig handler ({}): {}", e, e.desc()))),
+				}
+			},
+			false => {
+				match unsafe { nix::sys::signal::signal(SIGSEGV, SigHandler::SigDfl) } {
+					Ok(_h) => {
+						SIGSEGV_HOOK.store(false, Ordering::Relaxed);
+						Ok(false)
+					},
+					Err(e) => Err(Error::RuntimeError(format!("could not reset sig handler ({}): {}", e, e.desc()))),
+				}
+			},
+		},
+		None => Ok(SIGSEGV_HOOK.load(Ordering::Relaxed)),
 	}
 }
 

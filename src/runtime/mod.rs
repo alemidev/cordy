@@ -32,6 +32,7 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 	lua.globals().set("mmap",     lua.create_function(lua_mmap)?)?;
 	lua.globals().set("munmap",   lua.create_function(lua_munmap)?)?;
 	lua.globals().set("mprotect", lua.create_function(lua_mprotect)?)?;
+	lua.globals().set("sigsegv",  lua.create_function(lua_catch_sigsev)?)?;
 	lua.globals().set("help",     lua.create_function(lua_help)?)?;
 	lua.globals().set("x",        lua.create_function(lua_hex)?)?;
 	lua.globals().set("b",        lua.create_function(lua_bytes)?)?;
@@ -57,8 +58,9 @@ pub const HELPTEXT : &str = "?> This is a complete lua repl
  >  procmaps([ret])                  get process memory maps as string
  >  read(addr, size)                 read {size} raw bytes at {addr}
  >  write(addr, bytes)               write given {bytes} at {addr}
- >  find(ptr, len, match, [first])   search from {ptr} to {ptr+len} any or first {match}
- >  x(number)                        show hex representation of given {number}
+ >  find(ptr, len, match, [first])   search from {ptr} to {ptr+len} for {match} and return addrs
+ >  x(number, [prefix])              show hex representation of given {number}
  >  b(string)                        return array of bytes from given {string}
+ >  sigsegv([set])                   get or set SIGSEGV handler state
  >  help()                           print these messages
 ";
