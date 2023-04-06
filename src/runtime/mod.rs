@@ -26,6 +26,7 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 
 	lua.globals().set("log",      lua.create_function(lua_log)?)?;
 	lua.globals().set("hexdump",  lua.create_function(lua_hexdump)?)?;
+	lua.globals().set("decomp",   lua.create_function(lua_decomp)?)?;
 	lua.globals().set("read",     lua.create_function(lua_read)?)?;
 	lua.globals().set("write",    lua.create_function(lua_write)?)?;
 	lua.globals().set("find",     lua.create_function(lua_find)?)?;
