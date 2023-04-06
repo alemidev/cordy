@@ -75,12 +75,14 @@ impl LuaRepl {
 			CR => {
 				match lua.load(&self.buffer).eval::<MultiValue>() {
 					Ok(values) => {
+						let mut once = false;
 						for val in values {
+							once = true;
 							self.console.send(
 								format!("=({}) {}", val.type_name(), pretty_lua(val))
 							)?;
 						}
-						self.console.send("\n@> ".into())?;
+						self.console.send(format!("{}@> ", if once { "\n" } else { "" }))?;
 						self.buffer = String::new();
 					},
 					Err(e) => {
