@@ -10,7 +10,6 @@ use tokio::sync::broadcast;
 use crate::runtime::console::Console;
 use crate::runtime::builtins::*;
 
-
 pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Result<(), Error> {
 	lua.globals().set("console", Console::from(console))?; // TODO passing it this way makes clones
 
@@ -28,6 +27,7 @@ pub fn register_builtin_fn(lua: &Lua, console: broadcast::Sender<String>) -> Res
 	lua.globals().set("write",    lua.create_function(lua_write)?)?;
 	lua.globals().set("find",     lua.create_function(lua_find)?)?;
 	lua.globals().set("procmaps", lua.create_function(lua_procmaps)?)?;
+	lua.globals().set("threads",  lua.create_function(lua_threads)?)?;
 	lua.globals().set("exit",     lua.create_function(lua_exit)?)?;
 	lua.globals().set("mmap",     lua.create_function(lua_mmap)?)?;
 	lua.globals().set("munmap",   lua.create_function(lua_munmap)?)?;
@@ -56,6 +56,7 @@ pub const HELPTEXT : &str = "?> This is a complete lua repl
  >  munmap(ptr, len)                 unmap {len} bytes at {ptr}
  >  mprotect(ptr, len, prot)         set {prot} flags from {ptr} to {ptr+len}
  >  procmaps([ret])                  get process memory maps as string
+ >  threads([ret])                   get process threads list as string
  >  read(addr, size)                 read {size} raw bytes at {addr}
  >  write(addr, bytes)               write given {bytes} at {addr}
  >  find(ptr, len, match, [first])   search from {ptr} to {ptr+len} for {match} and return addrs

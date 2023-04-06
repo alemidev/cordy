@@ -1,8 +1,9 @@
-use std::{ffi::c_void, num::NonZeroUsize};
+use std::{ffi::{c_void, c_int}, num::NonZeroUsize, sync::atomic::{AtomicBool, Ordering}};
 
-use mlua::{Lua, Error, Variadic, Value, ToLua};
-use pox::{proc_maps::get_process_maps, tricks::fmt_path};
+use mlua::{Lua, Error, Variadic, Value, ToLua, Table};
 use nix::sys::{mman::{mprotect, ProtFlags, mmap, MapFlags, munmap}, signal::{Signal::SIGSEGV, SigHandler}};
+use procfs::{process::{Process, MemoryMaps, TasksIter, Status, Task, MemoryMap}, ProcError, ProcResult};
+use tracing::warn;
 
 use crate::helpers::pretty_lua;
 
@@ -29,12 +30,11 @@ pub fn lua_log(lua: &Lua, values: Variadic<Value>) -> Result<usize, Error> {
 }
 
 pub fn lua_hexdump(lua: &Lua, (bytes, ret): (Vec<u8>, Option<bool>)) -> Result<Value, Error> {
-	let txt = pretty_hex::pretty_hex(&bytes) + "\n";
 	if ret.unwrap_or(false) {
-		return Ok(txt.to_lua(lua)?);
+		return Ok(pretty_hex::simple_hex(&bytes).to_lua(lua)?);
 	}
 	let console : Console = lua.globals().get("console")?;
-	console.send(txt)?;
+	console.send(pretty_hex::pretty_hex(&bytes))?;
 	Ok(Value::Nil)
 }
 
@@ -133,27 +133,96 @@ pub fn lua_find(
 	Ok(matches)
 }
 
+fn proc_table(lua: &Lua, task: Status) -> Result<Table, Error> {
+	let table = lua.create_table()?;
+	table.set("pid", task.pid)?;
+	table.set("name", task.name)?;
+	table.set("state", task.state)?;
+	table.set("fdsize", task.fdsize)?;
+	Ok(table)
+}
+
+fn map_table(lua: &Lua, task: MemoryMap) -> Result<Table, Error> {
+	let table = lua.create_table()?;
+	table.set("perms", task.perms.as_str())?;
+	table.set("address", task.address.0)?;
+	table.set("offset", task.offset)?;
+	table.set("size", task.address.1 - task.address.0)?;
+	table.set("path", format!("{:?}", task.pathname))?;
+	Ok(table)
+}
+
+fn proc_maps() -> ProcResult<MemoryMaps> {
+	Ok(Process::myself()?.maps()?)
+}
+
 pub fn lua_procmaps(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
-	let mut out = String::new();
-	let maps = get_process_maps(std::process::id() as i32)
+	let maps = proc_maps()
 		.map_err(|e| Error::RuntimeError(
 			format!("could not obtain process maps: {}", e)
 		))?;
-	for map in maps {
-		out.push_str(
-			format!(
-				"[{}] 0x{:08X}..0x{:08X} +{:08x} ({}b) \t {} {}\n",
-				map.flags, map.start(), map.start() + map.size(), map.offset, map.size(), fmt_path(map.filename()),
-				if map.inode != 0 { format!("({})", map.inode) } else { "".into() },
-			).as_str()
-		);
-	}
 	if ret.unwrap_or(false) {
-		return Ok(out.to_lua(lua)?);
+		let mut out = vec![];
+		for map in maps {
+			out.push(map_table(lua, map)?);
+		}
+		Ok(out.to_lua(lua)?)
+	} else {
+		let mut out = format!("=> /proc/{}/maps", std::process::id());
+		for map in maps {
+			out.push_str(
+				format!(
+					"\n[{}] 0x{:08X}..0x{:08X} +{:08x} ({}b) \t {:?} {}",
+					map.perms.as_str(), map.address.0, map.address.1, map.offset, map.address.1 - map.address.0, map.pathname,
+					if map.inode != 0 { format!("({})", map.inode) } else { "".into() },
+				).as_str()
+			);
+		}
+		let console : Console = lua.globals().get("console")?;
+		console.send(out)?;
+		Ok(Value::Nil)
 	}
-	let console : Console = lua.globals().get("console")?;
-	console.send(out)?;
-	Ok(Value::Nil)
+}
+
+fn thread_maps() -> ProcResult<TasksIter> {
+	Ok(Process::myself()?.tasks()?)
+}
+
+fn thread_status(task: Result<Task, ProcError>) -> ProcResult<Status> {
+	Ok(task?.status()?)
+}
+
+pub fn lua_threads(lua: &Lua, ret: Option<bool>) -> Result<Value, Error> {
+	let maps = thread_maps()
+		.map_err(|e| Error::RuntimeError(
+			format!("could not obtain task maps: {}", e)
+		))?;
+	if ret.unwrap_or(false) {
+		let mut out = vec![];
+		for task in maps {
+			match thread_status(task) {
+				Ok(s) => out.push(proc_table(lua, s)?),
+				Err(e) => warn!("could not parse task metadata: {}", e),
+			}
+		}
+		Ok(out.to_lua(lua)?)
+	} else {
+		let mut out = format!("=> /proc/{}/tasks", std::process::id());
+		for task in maps {
+			match thread_status(task) {
+				Ok(s) => {
+					out.push_str(
+						format!("\n * [{}] {} {} | {} fd)", s.pid, s.state, s.name, s.fdsize).as_str()
+					);
+				},
+				Err(e) => warn!("could not parse task metadata: {}", e),
+			}
+		}
+
+		let console : Console = lua.globals().get("console")?;
+		console.send(out)?;
+		Ok(Value::Nil)
+	}
 }
 
 pub fn lua_mprotect(_: &Lua, (addr, size, prot): (usize, usize, i32)) -> Result<(), Error> {
