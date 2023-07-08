@@ -2,7 +2,7 @@ use mlua::Lua;
 use tokio::{sync::{mpsc, broadcast}, net::{TcpListener, TcpStream}, io::{AsyncWriteExt, AsyncReadExt}};
 use tracing::{debug, error, warn};
 
-use crate::runtime::{register_builtin_fn, VERSIONTEXT, repl::LuaRepl};
+use crate::{repl::{LuaRepl, VERSIONTEXT}, tools::register_builtin_fn};
 
 pub struct ControlChannel {
 	addr: String,

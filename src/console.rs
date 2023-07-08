@@ -1,7 +1,6 @@
 use mlua::{UserData, Error};
 use tokio::sync::broadcast;
 
-
 #[derive(Clone)]
 pub struct Console (broadcast::Sender<String>);
 

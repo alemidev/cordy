@@ -9,6 +9,8 @@ const FF : char = '\u{C}';  // line feed, <C-L>, ^L
 const CMD: char = '\u{1B}'; // ANSI escape char
 const CR : char = '\u{A}';  // newline, \n, 10
 
+pub const VERSIONTEXT : &str = "LuaJit 5.2 via rlua";
+
 enum CmdStep {
 	Nope,
 	One,

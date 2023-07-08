@@ -1,9 +1,11 @@
-mod runtime;
 mod channel;
 mod helpers;
+mod console;
+mod repl;
+mod tools;
 
 use channel::ControlChannel;
-use tracing::{error, debug};
+use tracing::error;
 
 #[ctor::ctor]
 fn contructor() {
@@ -12,7 +14,6 @@ fn contructor() {
 			.with_max_level(tracing::Level::DEBUG)
 			.with_writer(std::io::stderr)
 			.init();
-		debug!("infected process");
 		tokio::runtime::Builder::new_current_thread()
 			.enable_all()
 			.build()?
