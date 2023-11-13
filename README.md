@@ -3,7 +3,7 @@ A remote control framework for processes.
 Inject lua code into running processes, or just mess around with the REPL.
 
 ## Usage
-Cordy is a shared object which you need to inject into running processes (consider using my [pox framework](https://github.com/alemidev/pox) or [dll-syringe](https://github.com/OpenByteDev/dll-syringe)).
+Cordy is a shared object which you need to inject into running processes (consider using my [pox framework](https://git.alemi.dev/pox/about) or [dll-syringe](https://github.com/OpenByteDev/dll-syringe)).
 
 Once a process is infected, a new thread will be spawned inside with a tokio event loop. A socket on localhost will be opened on port 13337 and you can just connect with netcat and access the REPL.
 
